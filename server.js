@@ -3,9 +3,15 @@
  */
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
-require('./config/mongoose.js')();
+
 var express = require('./config/express');
+var mongoose = require('./config/mongoose');
+var passport = require('./config/passport');
+
+var db = mongoose();
 var app = express();
+var passport = passport();
+
 app.set('json spaces',"\t");
 app.listen(3000);
 

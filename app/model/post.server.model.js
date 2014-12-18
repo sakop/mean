@@ -5,7 +5,7 @@ var mongoose = require('mongoose');
 
 var Schema = mongoose.Schema;
 
-var PostSchema = new Schema({
+var Post = new Schema({
     title: {
         type: String,
         required: true,
@@ -23,5 +23,3 @@ var PostSchema = new Schema({
         ref:'User'
     }
 });
-
-mongoose.model('Post',PostSchema);

@@ -8,7 +8,7 @@ mongoose = require('mongoose');
 //不能漏！
 mongoose.connect(config.url);
 //test
-require('../model/user.server.model');
+require('../model/user.server.model.js');
 require('../model/post.server.model');
 var User = mongoose.model('User');
 var Post = mongoose.model('Post');

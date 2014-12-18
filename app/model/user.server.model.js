@@ -1,84 +1,96 @@
 /**
- * Created by qiucheng on 14/12/15.
+ * Created by qiucheng on 14/12/17.
  */
-var mongoose = require('mongoose');
-
-var Schema = mongoose.Schema;
+var mongoose = require('mongoose'),
+    crypto = require('crypto'),
+    Schema = mongoose.Schema;
 
 var UserSchema = new Schema({
-        firstName: String,
-        lastName: {
-            type: String,
-            trim: true
-        },
-        email: {
-            type: String,
-            match: /.+\@.+\..+/
-        },
-        username: {
-            type: String,
-            trim: true,
-            required: true,
-            validate: [
-                function (username) {
-                    return username.length >= 6;
-                }, "The name is too short"
-            ]
-        },
-        password: {
-            type: String,
-            trim: true
-        }
-        ,
-        created: {
-            type: Date,
-            default: Date.now
-        }
-        ,
-        age: {
-            type: Number,
-            default: 15,
-            get: function (age) {
-                return "I am " + age;
-            }
-        }
+    firstName: String,
+    lastName: String,
+    email: {
+        type: String,
+        match: [/.+\@.+\..+/, "Please fill a valid e-mail address"]
+    },
+    username: {
+        type: String,
+        unique: true,
+        required: 'Username is required',
+        trim: true
+    },
+    password: {
+        type: String,
+        validate: [
+            function (password) {
+                return password && password.length > 1;
+            }, "password should be longer"
+        ]
+    },
+    salt: {
+        type: String
+    },
+    provider: {
+        type: String,
+        required: "provider is required"
+    },
+    providerId: String,
+    providerData: {},
+    created: {
+        type: Date,
+        default: Date.now
+    }
 
-    })
-    ;
 
-UserSchema.set('toJSON', {getters: true});
-//inferred attribute
-UserSchema.virtual("fullName").get(function () {
-    return this.firstName + " " + this.lastName;
-}).set(function (fullName) {
-    var names = fullName.split(' ');
-    this.firstName = names[0];
-    this.lastName = names[1];
 });
 
-//static用来声明新的数据库操作
-UserSchema.static.findOneByName = function (username, callback) {
-    this.findOne({username: username}, callback);
-}
+UserSchema.virtual("fullName").get(function () {
+    return this.firstName + ' ' + this.lastName;
+}).set(function (fullName) {
+    var splitNames = fullName.split(' ');
+    this.firstName = splitNames[0] || '';
+    this.lastName = splitNames[1] || '';
+});
 
-//methods用来为每一个model对象增加操作（如验证）
-UserSchema.methods.authenticate = function () {
-    if (this.password == null)
-        return false;
-    return this.password.length > 6;
-};
 
-UserSchema.pre("save", function (next) {
-    console.log(this);
+UserSchema.pre('save', function (next) {
+    if (this.password) {
+        this.salt = crypto.randomBytes(16).toString('base64');
+        this.password = this.hashPassword(this.password);
+    }
     next();
 });
 
-UserSchema.post('save', function (next) {
-    if (this.isNew)
-        console.log("A new element is inserted")
-    else {
-        console.log("A new element is updated")
-    }
+UserSchema.methods.hashPassword = function (password) {
+    return crypto.pbkdf2Sync(password, this.salt, 10000, 64).toString('base64');
+};
+
+UserSchema.methods.authenticate = function (password) {
+    return this.password === this.hashPassword(password);
+};
+
+UserSchema.statics.findUniqueUsername = function (username, suffix, callback) {
+    //this指的是UserSchema
+    var _this = this;
+    var possibleUsername = username + (suffix || '');
+    _this.findOne({username: possibleUsername}, function (err, user) {
+        if (!err) {
+            if (!user) {
+                callback(possibleUsername);
+            } else {
+                return _this.findUniqueUsername(username, (suffix || 0) + 1, callback);
+            }
+        } else {
+            //不懂
+            callback(null);
+        }
+    });
+}
+
+UserSchema.set('toJSON', {
+    getters: true,
+    virtuals: true
 });
 
 mongoose.model('User', UserSchema);
+
+
